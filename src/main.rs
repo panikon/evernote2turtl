@@ -9,8 +9,7 @@ mod evernote2turtl;
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() != 3 && args.len() != 4 {
-        println!(
-            "Usage: {} [zip file or unzipped directory path] [numeric user ID] [input format:evernote (default)|keep]\n",
+        println!("Usage: {} [zip file or unzipped directory path] [numeric user ID] [input format:evernote (default)|keep]\n- To find your 'numeric user ID' generate a Turtl backup\n",
             args[0]
         );
         return;
@@ -22,7 +21,16 @@ fn main() {
         format = "evernote";
     }
     let path = args[1].as_str();
-    let user_id = u32::from_str_radix(args[2].as_str(), 10).unwrap();
+
+	let user_id;
+	match args[2].parse::<u32>() {
+		Ok(integer) => user_id = integer,
+		Err(user_id) => {
+			println!("Failed to parse numeric user id: {}", user_id);
+			return;
+		},
+	};
+
     let re: Regex = Regex::new(r"\.zip$").unwrap();
     if re.is_match(path) {
         // Zip file
