@@ -1,15 +1,29 @@
 [package]
-name = "evernote2turtl"
+name = "keep2turtl"
 version = "0.1.0"
-authors = ["Magnus Manske <magnusmanske@googlemail.com>"]
+authors = ["Panikon <panikon@zoho.com>", "Magnus Manske <magnusmanske@googlemail.com>"]
 edition = "2018"
+
+[lib]
+name = "keep2turtl"
+path = "src/keep2turtl.rs"
+
+[[bin]]
+name = "keep2turtl"
+path = "src/main.rs"
 
 [dependencies]
 regex = "1"
 lazy_static = "1.2.0"
-html2md = "0.2.5"
 json = "0.11.13"
 image = "0.23.14"
 base64 = "0.13.0"
 zip = "0.5.0"
 uuid = { version = "0.7", features = ["serde", "v4"] }
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "my_benchmark"
+harness = false

@@ -1,5 +1,5 @@
 use std::env;
-mod evernote2turtl;
+mod keep2turtl;
 
 
 fn parse_arg(args: &[String]) -> (&str, u32) {
@@ -31,11 +31,11 @@ fn main() {
 	};
 	if extension == "zip" {
         // Zip file
-        let j = evernote2turtl::create_turtl_backup_from_zipfile(complete_path, user_id).unwrap();
+        let j = keep2turtl::create_turtl_backup_from_zipfile(complete_path, user_id).unwrap();
         println!("{:#}", j);
     } else {
         // unzipped directory
-        let j = evernote2turtl::create_turtl_backup_from_directory(complete_path, user_id).unwrap();
+        let j = keep2turtl::create_turtl_backup_from_directory(complete_path, user_id).unwrap();
         println!("{:#}", j);
     }
 }
