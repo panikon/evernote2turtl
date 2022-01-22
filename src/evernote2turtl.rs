@@ -12,23 +12,13 @@ use std::io::prelude::*;
 use uuid::Uuid;
 use zip::read::ZipArchive;
 
+use std::io::{Error, ErrorKind};
+
 fn get_dummy_turtl_space_id() -> String {
     lazy_static::lazy_static! {
         static ref SPACE_ID: String = get_uuid();
     }
     SPACE_ID.to_string()
-}
-
-fn extract_title(html: &str) -> Result<String, std::io::Error> {
-    let mut ret = String::new();
-    lazy_static::lazy_static! {
-        static ref RE: Regex = Regex::new(r"<title>\s*(.+?)\s*</title>").unwrap();
-    }
-    for cap in RE.captures_iter(html) {
-        ret = cap[1].to_string();
-        break;
-    }
-    Ok(ret)
 }
 
 fn get_uuid() -> String {
@@ -45,37 +35,6 @@ fn get_uuid() -> String {
     ret.truncate(80);
     ret
 }
-
-pub fn convert_html_file_contents_to_json(
-    contents: std::string::String,
-    user_id: u32,
-    format: &str,
-) -> Result<json::JsonValue, std::io::Error> {
-    let html_start = contents.find("<body").unwrap();
-    let html = contents.get(html_start..).unwrap();
-    let title = extract_title(&contents)?;
-    let md = html2md::parse_html(&html);
-    let mut md2 = md.trim_matches(|c| c == ' ' || c == '\n');
-    if format == "keep" && md2.contains("\n") {
-        // Remove first line in Keep format, as it just repeats the title
-        let second_line = md2.find("\n").unwrap();
-        md2 = md2.get((second_line + 1)..).unwrap();
-        md2 = md2.trim_matches(|c| c == ' ' || c == '\n');
-    }
-    let j = object! {
-        "id" => get_uuid(),
-        "space_id" => get_dummy_turtl_space_id() ,
-        "user_id" => user_id ,
-        "has_file" => false ,
-        "tags" => array![] ,
-        "title" => title ,
-        "text" => md2 ,
-        "type" => "text"
-    };
-    Ok(j)
-}
-use std::io::{Error, ErrorKind};
-
 
 /// Parses attachments from Keep's JSON and converts to Turtl's format
 /// # Keep
@@ -349,30 +308,15 @@ pub fn convert_keep2turtl(
 	Ok(j)
 }
 
-pub fn convert_file_to_json(
-    file_name: &str,
-    user_id: u32,
-    format: &str,
-) -> Result<json::JsonValue, std::io::Error> {
-    let mut f = File::open(file_name)?;
-    let mut contents = String::new();
-    f.read_to_string(&mut contents)?;
-    convert_html_file_contents_to_json(contents, user_id, format)
-}
-
 pub fn get_turtl_backup_object(
-    user_id: u32,
-    format: &str,
+    user_id: u32
 ) -> Result<json::JsonValue, std::io::Error> {
     let space_name;
     let space_color;
-    if format == "evernote" {
-        space_name = "Evernote import";
-        space_color = "#000000";
-    } else {
-        space_name = "Google Keep import";
-        space_color = "#0000BB";
-    }
+
+	space_name = "Google Keep import";
+	space_color = "#0000BB";
+
     let ret = object! {
         "body" => json::Null ,
         "boards" => array![],
@@ -398,62 +342,54 @@ pub fn create_turtl_backup_from_zipfile(
     zipfile: &str,
     user_id: u32,
 ) -> Result<json::JsonValue, std::io::Error> {
-    lazy_static::lazy_static! {
-        static ref RE_HTML: Regex = Regex::new(r"\.html$").unwrap();
-        static ref RE_HIDDEN1: Regex = Regex::new(r"/\.").unwrap();
-        static ref RE_HIDDEN2: Regex = Regex::new(r"^\.").unwrap();
-    };
-    let mut ret = get_turtl_backup_object(user_id, "Evernote import")?;
-    let f = File::open(zipfile)?;
-    let mut zip = ZipArchive::new(f)?;
-
-    for i in 0..zip.len() {
-        let mut file = zip.by_index(i).unwrap();
-        let filename = file.name();
-        if RE_HTML.is_match(filename)
-            && !RE_HIDDEN1.is_match(filename)
-            && !RE_HIDDEN2.is_match(filename)
-            && file.size() > 0
-        {
-            let mut contents = String::new();
-            file.read_to_string(&mut contents)?;
-            let note = convert_html_file_contents_to_json(contents, user_id, "evernote")?; // Using evernote constant until this can process Keep ZIP files as well
-            ret["notes"].push(note).unwrap();
-        }
-    }
-    Ok(ret)
+	panic!("Not supported\n");
+//    lazy_static::lazy_static! {
+//        static ref RE_HTML: Regex = Regex::new(r"\.html$").unwrap();
+//        static ref RE_HIDDEN1: Regex = Regex::new(r"/\.").unwrap();
+//        static ref RE_HIDDEN2: Regex = Regex::new(r"^\.").unwrap();
+//    };
+//    let mut ret = get_turtl_backup_object(user_id, "Evernote import")?;
+//    let f = File::open(zipfile)?;
+//    let mut zip = ZipArchive::new(f)?;
+//
+//    for i in 0..zip.len() {
+//        let mut file = zip.by_index(i).unwrap();
+//        let filename = file.name();
+//        if RE_HTML.is_match(filename)
+//            && !RE_HIDDEN1.is_match(filename)
+//            && !RE_HIDDEN2.is_match(filename)
+//            && file.size() > 0
+//        {
+//            let mut contents = String::new();
+//            file.read_to_string(&mut contents)?;
+//            let note = convert_html_file_contents_to_json(contents, user_id, "evernote")?; // Using evernote constant until this can process Keep ZIP files as well
+//            ret["notes"].push(note).unwrap();
+//        }
+//    }
+//    Ok(ret)
 }
 
 pub fn create_turtl_backup_from_directory(
     path: &str,
     user_id: u32,
-    format: &str,
-	use_json: bool,
 ) -> Result<json::JsonValue, std::io::Error> {
     lazy_static::lazy_static! {
         static ref RE_HTML: Regex = Regex::new(r"\.html$").unwrap();
 		static ref RE_JSON: Regex = Regex::new(r"\.json$").unwrap();
     };
-    let mut ret = get_turtl_backup_object(user_id, format)?;
+    let mut ret = get_turtl_backup_object(user_id)?;
 
     if let Ok(entries) = fs::read_dir(path) {
         for entry in entries {
             if let Ok(entry) = entry {
                 let file_path = entry.path().to_string_lossy().into_owned();
-				if use_json {
-					if RE_JSON.is_match(file_path.as_str()) {
-						match convert_keep2turtl(path, file_path.as_str(), user_id) {
-							Ok(o) => {
-								ret["notes"].push(o).unwrap();
-								continue
-							},
-							Err(e) => println!("\n{}: {}", file_path.as_str(), e),
-						}
-					}
-				} else {
-					if RE_HTML.is_match(file_path.as_str()) {
-						let note = convert_file_to_json(file_path.as_str(), user_id, format)?;
-						ret["notes"].push(note).unwrap();
+				if RE_JSON.is_match(file_path.as_str()) {
+					match convert_keep2turtl(path, file_path.as_str(), user_id) {
+						Ok(o) => {
+							ret["notes"].push(o).unwrap();
+							continue
+						},
+						Err(e) => println!("\n{}: {}", file_path.as_str(), e),
 					}
 				}
             }
