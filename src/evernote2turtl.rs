@@ -10,17 +10,17 @@ use zip::read::ZipArchive;
 
 fn get_dummy_turtl_space_id() -> String {
     lazy_static::lazy_static! {
-        static ref space_id: String = get_uuid();
+        static ref SPACE_ID: String = get_uuid();
     }
-    space_id.to_string()
+    SPACE_ID.to_string()
 }
 
 fn extract_title(html: &str) -> Result<String, std::io::Error> {
     let mut ret = String::new();
     lazy_static::lazy_static! {
-        static ref re: Regex = Regex::new(r"<title>\s*(.+?)\s*</title>").unwrap();
+        static ref RE: Regex = Regex::new(r"<title>\s*(.+?)\s*</title>").unwrap();
     }
-    for cap in re.captures_iter(html) {
+    for cap in RE.captures_iter(html) {
         ret = cap[1].to_string();
         break;
     }
@@ -29,7 +29,7 @@ fn extract_title(html: &str) -> Result<String, std::io::Error> {
 
 fn get_uuid() -> String {
     lazy_static::lazy_static! {
-        static ref re: Regex = Regex::new(r"-").unwrap();
+        static ref RE: Regex = Regex::new(r"-").unwrap();
     };
     let id1 = Uuid::new_v4();
     let id2 = Uuid::new_v4();
@@ -37,7 +37,7 @@ fn get_uuid() -> String {
     let mut ret = id1.to_string();
     ret += id2.to_string().as_str();
     ret += id3.to_string().as_str();
-    ret = re.replace_all(ret.as_str(), "").to_string();
+    ret = RE.replace_all(ret.as_str(), "").to_string();
     ret.truncate(80);
     ret
 }
@@ -109,9 +109,9 @@ pub fn convert_keep2turtl_parsefile(
 			changed_extension = false;
 			d
 		},
-		Err(e) => {
+		Err(_e) => {
 			let temp_path = filepath.clone();
-			let (path, mut extension) = temp_path.rsplit_once(".").unwrap();
+			let (path, extension) = temp_path.rsplit_once(".").unwrap();
 			// Google does some funny business when Keep data is taken out, some files
 			// are saved as ".jpg" but their names inside the JSON files can sometimes
 			// have ".jpeg" or ".png" as the extension... 
@@ -204,7 +204,6 @@ pub fn convert_keep2turtl(
 	current_dir: &str,
     file_name: &str,
     user_id: u32,
-    format: &str,
 ) -> Result<json::JsonValue, std::io::Error>{
 	//let (current_dir, name) = file_name.rsplit_once(std::path::MAIN_SEPARATOR).unwrap();
 	println!("{}", file_name);
@@ -238,7 +237,18 @@ pub fn convert_keep2turtl(
 			true => {
 				let mut tag_array = json::JsonValue::Array(Vec::with_capacity(keep_json["labels"].len()));
 				for entry in keep_json["labels"].members() {
-					tag_array.push(entry["name"].as_str());
+					match tag_array.push(entry["name"].as_str()) {
+						Ok(p) => p,
+						Err(e) => {
+							return Err(Error::new(ErrorKind::Other,
+								format!("Failed to parse (\"{}\") : {} / Failed to push labels",
+										file_name,
+										e
+										)
+									)
+							);
+						}
+					}
 					//println!("{}", entry["name"]);
 				}
 				tag_array
@@ -385,9 +395,9 @@ pub fn create_turtl_backup_from_zipfile(
     user_id: u32,
 ) -> Result<json::JsonValue, std::io::Error> {
     lazy_static::lazy_static! {
-        static ref re_html: Regex = Regex::new(r"\.html$").unwrap();
-        static ref re_hidden1: Regex = Regex::new(r"/\.").unwrap();
-        static ref re_hidden2: Regex = Regex::new(r"^\.").unwrap();
+        static ref RE_HTML: Regex = Regex::new(r"\.html$").unwrap();
+        static ref RE_HIDDEN1: Regex = Regex::new(r"/\.").unwrap();
+        static ref RE_HIDDEN2: Regex = Regex::new(r"^\.").unwrap();
     };
     let mut ret = get_turtl_backup_object(user_id, "Evernote import")?;
     let f = File::open(zipfile)?;
@@ -396,9 +406,9 @@ pub fn create_turtl_backup_from_zipfile(
     for i in 0..zip.len() {
         let mut file = zip.by_index(i).unwrap();
         let filename = file.name();
-        if re_html.is_match(filename)
-            && !re_hidden1.is_match(filename)
-            && !re_hidden2.is_match(filename)
+        if RE_HTML.is_match(filename)
+            && !RE_HIDDEN1.is_match(filename)
+            && !RE_HIDDEN2.is_match(filename)
             && file.size() > 0
         {
             let mut contents = String::new();
@@ -427,7 +437,7 @@ pub fn create_turtl_backup_from_directory(
                 let file_path = entry.path().to_string_lossy().into_owned();
 				if use_json {
 					if RE_JSON.is_match(file_path.as_str()) {
-						match convert_keep2turtl(path, file_path.as_str(), user_id, format) {
+						match convert_keep2turtl(path, file_path.as_str(), user_id) {
 							Ok(o) => {
 								ret["notes"].push(o).unwrap();
 								continue

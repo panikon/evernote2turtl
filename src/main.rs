@@ -33,7 +33,7 @@ fn main() {
 		},
 	};
 
-	let use_json = if args[4].as_str() != "json" || format == "evernote" {
+	let use_json = if args.len() >= 5 && args[4].as_str() != "json" || format == "evernote" {
 		false
 	} else {
 		true
