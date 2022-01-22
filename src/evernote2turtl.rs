@@ -5,6 +5,7 @@ extern crate zip;
 
 use json::object;
 use json::array;
+
 use regex::Regex;
 use std::fs;
 use std::fs::File;
@@ -166,13 +167,14 @@ pub fn convert_keep2turtl_parsefile(
 pub fn convert_keep2turtl(
 	current_dir: &str,
     file_name: &str,
+	contents: &str,
     user_id: u32,
 ) -> Result<json::JsonValue, std::io::Error>{
 	//let (current_dir, name) = file_name.rsplit_once(std::path::MAIN_SEPARATOR).unwrap();
 	println!("{}", file_name);
-    let mut f = File::open(file_name)?;
-    let mut contents = String::new();
-    f.read_to_string(&mut contents)?;
+	//let mut f = File::open(file_name)?;
+	//let mut contents = String::new();
+    //f.read_to_string(&mut contents)?;
 
 	let keep_json;
 	match json::parse(&contents) {
@@ -308,6 +310,7 @@ pub fn convert_keep2turtl(
 	Ok(j)
 }
 
+/// Generates basic backup object
 pub fn get_turtl_backup_object(
     user_id: u32
 ) -> Result<json::JsonValue, std::io::Error> {
@@ -338,53 +341,60 @@ pub fn get_turtl_backup_object(
     Ok(ret)
 }
 
+/// Creates backup from a valid takeout zip file
+/// Expected takeout zip structure:
+/// ```Takeout/Keep```
 pub fn create_turtl_backup_from_zipfile(
     zipfile: &str,
     user_id: u32,
 ) -> Result<json::JsonValue, std::io::Error> {
-	panic!("Not supported\n");
-//    lazy_static::lazy_static! {
-//        static ref RE_HTML: Regex = Regex::new(r"\.html$").unwrap();
-//        static ref RE_HIDDEN1: Regex = Regex::new(r"/\.").unwrap();
-//        static ref RE_HIDDEN2: Regex = Regex::new(r"^\.").unwrap();
-//    };
-//    let mut ret = get_turtl_backup_object(user_id, "Evernote import")?;
-//    let f = File::open(zipfile)?;
-//    let mut zip = ZipArchive::new(f)?;
-//
-//    for i in 0..zip.len() {
-//        let mut file = zip.by_index(i).unwrap();
-//        let filename = file.name();
-//        if RE_HTML.is_match(filename)
-//            && !RE_HIDDEN1.is_match(filename)
-//            && !RE_HIDDEN2.is_match(filename)
-//            && file.size() > 0
-//        {
-//            let mut contents = String::new();
-//            file.read_to_string(&mut contents)?;
-//            let note = convert_html_file_contents_to_json(contents, user_id, "evernote")?; // Using evernote constant until this can process Keep ZIP files as well
-//            ret["notes"].push(note).unwrap();
-//        }
-//    }
-//    Ok(ret)
+	lazy_static::lazy_static! {
+		static ref RE_VALID_FILE: Regex = Regex::new("^Takeout/Keep/(.+)\\.json$").unwrap();
+	};
+	let mut ret = get_turtl_backup_object(user_id)?;
+
+    let f = File::open(zipfile)?;
+    let mut zip = ZipArchive::new(f)?;
+	for i in 0..zip.len() {
+		let mut file = zip.by_index(i).unwrap();
+
+		if RE_VALID_FILE.is_match(file.name()) {
+			println!("{}", file.name());
+
+			let mut contents = String::new();
+			file.read_to_string(&mut contents)?;
+			match convert_keep2turtl("Takeout/Keep", file.name(), &contents, user_id) {
+				Ok(o) => {
+					ret["notes"].push(o).unwrap();
+					continue
+				},
+				Err(e) => println!("\n{}(Takeout/Keep): {}", zipfile, e),
+			}
+		}
+	}
+	Ok(ret)
 }
 
+/// Creates a backup from a directory containing Keep .json files
 pub fn create_turtl_backup_from_directory(
     path: &str,
     user_id: u32,
 ) -> Result<json::JsonValue, std::io::Error> {
-    lazy_static::lazy_static! {
-        static ref RE_HTML: Regex = Regex::new(r"\.html$").unwrap();
-		static ref RE_JSON: Regex = Regex::new(r"\.json$").unwrap();
-    };
     let mut ret = get_turtl_backup_object(user_id)?;
 
     if let Ok(entries) = fs::read_dir(path) {
         for entry in entries {
             if let Ok(entry) = entry {
                 let file_path = entry.path().to_string_lossy().into_owned();
-				if RE_JSON.is_match(file_path.as_str()) {
-					match convert_keep2turtl(path, file_path.as_str(), user_id) {
+				if file_path.len() < 4 { continue; }
+				let extension = &file_path[file_path.len()-4..];
+
+				if extension == "json" {
+					let mut f = File::open(file_path.as_str())?;
+					let mut contents = String::new();
+					f.read_to_string(&mut contents)?;
+
+					match convert_keep2turtl(path, file_path.as_str(), &contents, user_id) {
 						Ok(o) => {
 							ret["notes"].push(o).unwrap();
 							continue

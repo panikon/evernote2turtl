@@ -29,7 +29,7 @@ fn main() {
 		None => (complete_path, ""),
 		Some(t) => t,
 	};
-	if extension == ".zip" {
+	if extension == "zip" {
         // Zip file
         let j = evernote2turtl::create_turtl_backup_from_zipfile(complete_path, user_id).unwrap();
         println!("{:#}", j);
