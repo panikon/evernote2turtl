@@ -1,6 +1,10 @@
+extern crate json;
 extern crate regex;
 extern crate uuid;
 extern crate zip;
+
+use json::object;
+use json::array;
 use regex::Regex;
 use std::fs;
 use std::fs::File;
@@ -431,6 +435,7 @@ pub fn create_turtl_backup_from_directory(
 		static ref RE_JSON: Regex = Regex::new(r"\.json$").unwrap();
     };
     let mut ret = get_turtl_backup_object(user_id, format)?;
+
     if let Ok(entries) = fs::read_dir(path) {
         for entry in entries {
             if let Ok(entry) = entry {
@@ -448,11 +453,15 @@ pub fn create_turtl_backup_from_directory(
 				} else {
 					if RE_HTML.is_match(file_path.as_str()) {
 						let note = convert_file_to_json(file_path.as_str(), user_id, format)?;
-						ret["notes"].push(note).unwrap();                    
+						ret["notes"].push(note).unwrap();
 					}
 				}
             }
         }
-    }
+    } else {
+		println!("Failed to open target path {} (working dir {})\n",
+		path,
+		std::env::current_dir()?.display());
+	}
     Ok(ret)
 }
