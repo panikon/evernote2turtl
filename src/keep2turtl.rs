@@ -31,13 +31,6 @@ use zip::read::ZipArchive;
 
 use std::io::{Error, ErrorKind};
 
-fn get_dummy_turtl_space_id() -> String {
-    lazy_static::lazy_static! {
-        static ref SPACE_ID: String = get_uuid();
-    }
-    SPACE_ID.to_string()
-}
-
 fn get_uuid() -> String {
     lazy_static::lazy_static! {
         static ref RE: Regex = Regex::new(r"-").unwrap();
@@ -219,7 +212,12 @@ pub fn convert_keep2turtl(
 	let is_image;
 	let mut j = object! {
         "id"       => get_uuid(),
-        "space_id" => get_dummy_turtl_space_id(),
+        "space_id" => backup_obj["spaces"][0]["id"].as_str(),
+		"board_id" => if keep_json["isPinned"].as_bool() == Some(false) {
+							json::Null.as_str()
+					} else {
+							backup_obj["boards"][0/* Pinned notes*/]["id"].as_str()
+					},
         "user_id"  => user_id,
 		// has_file is false even when there are attachments or the type of note is file
 		"has_file" => false,
@@ -342,21 +340,31 @@ pub fn get_turtl_backup_object(
 ) -> Result<json::JsonValue, std::io::Error> {
     let space_name;
     let space_color;
+	let space_id = get_uuid().to_string();
 
 	space_name = "Google Keep import";
-	space_color = "#0000BB";
+	space_color = "#d88742";
 
     let ret = object! {
         "body" => json::Null ,
-        "boards" => array![],
+        "boards" => array![
+			object!{
+				"body"    => json::Null,
+				"id"      => get_uuid().to_string(),
+				"user_id" => user_id,
+				"keys"    => array![],
+				"space_id"=> space_id.clone(),
+				"title"   => "Pinned notes"
+			}
+		],
         "files" => array![],
         "notes" => array![],
         "schema_version" => 2 ,
         "spaces" => array![
             object!{
                 "color" => space_color,
-                "id" => get_dummy_turtl_space_id(),
-                "user_id" => user_id ,
+                "id" => space_id,
+                "user_id" => user_id,
                 "invites" => array![],
                 "keys" => array![],
                 "members" => array![],

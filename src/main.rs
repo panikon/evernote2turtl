@@ -61,13 +61,13 @@ fn main() {
         // unzipped directory
         j = keep2turtl::create_turtl_backup_from_directory(complete_path, user_id).unwrap();
     }
-	println!("Saving to {}", target);
+	println!("\nSaving {} notes to {}", j["notes"].len(), target);
 	let mut file = match File::create(target) {
 		Ok(f) => f,
 		Err(e) => panic!("Failed to create {}, error: {}", target, e),
 	};
 	match file.write_all(json::stringify(j).as_bytes()) {
-		Ok(_f) => println!("Successfuly saved"),
+		Ok(_f) => println!("Save successful"),
 		Err(e) => panic!("Failed to save to {}, error: {}", target, e),
 	};
 }

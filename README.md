@@ -1,3 +1,5 @@
+![arrow pointing from keep logo to turtl logo](logo.png "Title image")
+
 This implements a converter from Google Takeout exported Keep files (zipped or unzipped json files) into [turtl](https://github.com/turtl) backup format, which can be imported into turtl.
 
 # Setup
@@ -8,9 +10,11 @@ This implements a converter from Google Takeout exported Keep files (zipped or u
 # Run
 To convert a zipped takeout file into a Turtl backup file:
 ```
-./target/release/evernote2turtl <zip_file or folder> USER_ID
+./target/release/evernote2turtl <zip_file or folder> USER_ID <file to save new data | defaults to import.json>
 ```
-You can get the `USER_ID` by generating a backup file for your turtl setup, and search for ```"user_id":``` at the backup file.
+You can get the `USER_ID` by generating a backup file for your turtl setup, and search for ```"user_id":``` at the backup file. When this field doesn't match turtl behaves unexpectedly and not all of the notes are saved when trying to import them.
+
+After the program has finished converting and saving your data ```Save Successful``` is shown, then in the turtl app you should go to `settings > Import & export` and then choose `import.json`
 
 # [License (GNU GPL3)](LICENSE)
 ```
