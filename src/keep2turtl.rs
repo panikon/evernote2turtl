@@ -73,6 +73,7 @@ fn get_uuid() -> String {
 /// },
 /// ```
 pub fn convert_keep2turtl_parsefile(
+	backup_obj: &mut json::JsonValue,
     current_dir: &str,
     keep_json: &json::JsonValue,
     j: &mut json::JsonValue,
@@ -142,7 +143,7 @@ pub fn convert_keep2turtl_parsefile(
 		},
 	};
 	j["file"] = object! {
-		"name" => filepath.as_str(),
+		"name" => keep_json["attachments"][0]["filePath"].as_str(),
 		"size" => metadata.len(),
 		"type" => match changed_extension {
 			false => format!("{}", keep_json["attachments"][0]["mimetype"]),
@@ -154,7 +155,6 @@ pub fn convert_keep2turtl_parsefile(
 			},
 		},
 		"id"   => j["id"].as_str(),
-		"data" => base64::encode(buffer),
 		//"body" => null
 	};
 	if is_image {
@@ -176,11 +176,21 @@ pub fn convert_keep2turtl_parsefile(
 			"width"  => width,
 		};
 	}
+	// Add file data to backup object
+	// Expected format { "body": null, "data": file_data base64, "id": object_uuid }
+	backup_obj["files"].push(
+		object!{
+			"body" => json::Null,
+			"data" => base64::encode(buffer),
+			"id"   => j["id"].as_str(),
+		}
+	).unwrap();
 	Ok(true)
 }
 
 /// Converts Keep's JSON format to Turtl's
 pub fn convert_keep2turtl(
+	backup_obj: &mut json::JsonValue,
 	current_dir: &str,
     file_name: &str,
 	contents: &str,
@@ -290,7 +300,7 @@ pub fn convert_keep2turtl(
 	};
 
 	if is_file {
-		match convert_keep2turtl_parsefile(&current_dir, &keep_json, &mut j, is_image) {
+		match convert_keep2turtl_parsefile(backup_obj, &current_dir, &keep_json, &mut j, is_image) {
 			Ok(r) => r,
 			Err(error) => {
 				return Err(Error::new(ErrorKind::Other,
@@ -379,7 +389,7 @@ pub fn create_turtl_backup_from_zipfile(
 
 			let mut contents = String::new();
 			file.read_to_string(&mut contents)?;
-			match convert_keep2turtl("Takeout/Keep", file.name(), &contents, user_id) {
+			match convert_keep2turtl(&mut ret, "Takeout/Keep", file.name(), &contents, user_id) {
 				Ok(o) => {
 					ret["notes"].push(o).unwrap();
 					continue
@@ -410,7 +420,7 @@ pub fn create_turtl_backup_from_directory(
 					let mut contents = String::new();
 					f.read_to_string(&mut contents)?;
 
-					match convert_keep2turtl(path, file_path.as_str(), &contents, user_id) {
+					match convert_keep2turtl(&mut ret, path, file_path.as_str(), &contents, user_id) {
 						Ok(o) => {
 							ret["notes"].push(o).unwrap();
 							continue
